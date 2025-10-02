@@ -1,0 +1,11 @@
+.cos {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+
+  .cos__item {
+    background-color: #f0f0f0;
+    padding: 10px;
+    border-radius: 5px;
+  }
+}
