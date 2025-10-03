@@ -32,7 +32,7 @@ body {
   opacity: 1;
   visibility: inherit;
   width: fit-content;
-  animation: scroll-left 20s linear infinite;
+  animation: scroll-left 30s linear infinite;
 }
 
 .cos__item {

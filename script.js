@@ -1,17 +1,16 @@
 /**
- * @description Throttle function to limit callback execution frequency
- * @param {Function} func - The function to throttle
+ * @description Debounce function to delay callback execution until after wait time has elapsed since last call
+ * @param {Function} func - The function to debounce
  * @param {number} wait - The delay in milliseconds
- * @returns {Function} The throttled function
+ * @returns {Function} The debounced function
  */
-function throttle(func, wait) {
-  let inThrottle;
+function debounce(func, wait) {
+  let timeout;
   return function executedFunction(...args) {
-    if (!inThrottle) {
+    clearTimeout(timeout);
+    timeout = setTimeout(() => {
       func.apply(this, args);
-      inThrottle = true;
-      setTimeout(() => (inThrottle = false), wait);
-    }
+    }, wait);
   };
 }
 
@@ -53,7 +52,7 @@ class COSElement extends HTMLElement {
 
     this.#calculateInitialItemsWidth();
     this.#cloneAndAppendInitialItems();
-    this.#setupThrottledWindowResizeHandler();
+    this.#setupDebouncedWindowResizeHandler();
     this.#setupWindowResizeListener();
   }
 
@@ -116,18 +115,18 @@ class COSElement extends HTMLElement {
   }
 
   /**
-   * @description Set up throttled window resize handler
+   * @description Set up debounced window resize handler
    * @returns {void}
    * @private
    */
-  #setupThrottledWindowResizeHandler() {
-    this.#windowResizeHandler = throttle(() => {
+  #setupDebouncedWindowResizeHandler() {
+    this.#windowResizeHandler = debounce(() => {
       this.#calculateInitialItemsWidth();
-    }, 100);
+    }, 250);
   }
 
   /**
-   * @description Set up window resize listener as backup
+   * @description Set up window resize listener
    * @returns {void}
    * @private
    */
