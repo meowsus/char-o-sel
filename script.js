@@ -1,18 +1,17 @@
 /**
- * @description Debounce function to limit callback execution frequency
- * @param {Function} func - The function to debounce
+ * @description Throttle function to limit callback execution frequency
+ * @param {Function} func - The function to throttle
  * @param {number} wait - The delay in milliseconds
- * @returns {Function} The debounced function
+ * @returns {Function} The throttled function
  */
-function debounce(func, wait) {
-  let timeout;
+function throttle(func, wait) {
+  let inThrottle;
   return function executedFunction(...args) {
-    const later = () => {
-      clearTimeout(timeout);
-      func(...args);
-    };
-    clearTimeout(timeout);
-    timeout = setTimeout(later, wait);
+    if (!inThrottle) {
+      func.apply(this, args);
+      inThrottle = true;
+      setTimeout(() => (inThrottle = false), wait);
+    }
   };
 }
 
@@ -65,7 +64,7 @@ class COSElement extends HTMLElement {
     this.#applyTrackStyles();
     this.#applyImagesStyles();
     this.#calculateItemsWidth();
-    this.#setupDebouncedWindowResizeHandler();
+    this.#setupThrottledWindowResizeHandler();
     this.#setupWindowResizeListener();
   }
 
@@ -132,12 +131,12 @@ class COSElement extends HTMLElement {
   }
 
   /**
-   * @description Set up debounced window resize handler
+   * @description Set up throttled window resize handler
    * @returns {void}
    * @private
    */
-  #setupDebouncedWindowResizeHandler() {
-    this.#windowResizeHandler = debounce(() => {
+  #setupThrottledWindowResizeHandler() {
+    this.#windowResizeHandler = throttle(() => {
       this.#calculateItemsWidth();
     }, 100);
   }
