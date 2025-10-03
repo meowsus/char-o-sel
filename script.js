@@ -20,16 +20,34 @@ function debounce(func, wait) {
  */
 class COSElement extends HTMLElement {
   /** @type {HTMLElement | null} */
-  $track;
+  $track = null;
 
   /** @type {NodeListOf<HTMLElement> | null} */
-  $initialItems;
+  $initialItems = null;
 
   /** @type {number} */
   initialItemsWidth = 0;
 
   /** @type {() => void} */
   #windowResizeHandler = null;
+
+  /** @type {() => void} */
+  #windowScrollHandler = null;
+
+  /** @type {number} */
+  #lastScrollY = 0;
+
+  /** @type {'down' | 'up'} */
+  #scrollDirection = "down";
+
+  /** @type {number} */
+  #currentPosition = 0;
+
+  /** @type {number | null} */
+  #animationFrameId = null;
+
+  /** @type {number} */
+  #speed = 1; // pixels per frame (adjust for desired speed)
 
   /**
    * @constructor
@@ -41,6 +59,8 @@ class COSElement extends HTMLElement {
 
     this.$track = this.querySelector("[data-track]");
     this.$initialItems = this.querySelectorAll("[data-item]");
+
+    this.#lastScrollY = window.scrollY;
   }
 
   /**
@@ -54,6 +74,9 @@ class COSElement extends HTMLElement {
     this.#cloneAndAppendInitialItems();
     this.#setupDebouncedWindowResizeHandler();
     this.#setupWindowResizeListener();
+    this.#setupWindowScrollHandler();
+    this.#setupWindowScrollListener();
+    this.#startAnimation();
   }
 
   /**
@@ -135,6 +158,86 @@ class COSElement extends HTMLElement {
   }
 
   /**
+   * @description Set up window scroll handler
+   * @returns {void}
+   * @private
+   */
+  #setupWindowScrollHandler() {
+    this.#windowScrollHandler = () => {
+      const currentScrollY = window.scrollY;
+      const newDirection = currentScrollY > this.#lastScrollY ? "down" : "up";
+
+      // Only update if scroll direction has changed
+      if (newDirection !== this.#scrollDirection) {
+        this.#scrollDirection = newDirection;
+        this.#updateAnimationDirection();
+      }
+
+      this.#lastScrollY = currentScrollY;
+    };
+  }
+
+  /**
+   * @description Set up window scroll listener
+   * @returns {void}
+   * @private
+   */
+  #setupWindowScrollListener() {
+    window.addEventListener("scroll", this.#windowScrollHandler, {
+      passive: true,
+    });
+  }
+
+  /**
+   * @description Start the animation loop
+   * @returns {void}
+   * @private
+   */
+  #startAnimation() {
+    this.#animate();
+  }
+
+  /**
+   * @description Animation loop using requestAnimationFrame
+   * @returns {void}
+   * @private
+   */
+  #animate() {
+    // Update position based on scroll direction
+    if (this.#scrollDirection === "down") {
+      this.#currentPosition -= this.#speed; // Move left
+    } else {
+      this.#currentPosition += this.#speed; // Move right
+    }
+
+    // Reset position when we've scrolled past one full loop
+    // This creates the infinite loop effect
+    if (this.#currentPosition <= -this.initialItemsWidth) {
+      this.#currentPosition = 0;
+    } else if (this.#currentPosition >= 0) {
+      // When going backwards, reset to negative position
+      this.#currentPosition = -this.initialItemsWidth;
+    }
+
+    // Apply transform
+    this.$track.style.transform = `translateX(${this.#currentPosition}px)`;
+
+    // Continue animation
+    this.#animationFrameId = requestAnimationFrame(() => this.#animate());
+  }
+
+  /**
+   * @description Update animation direction based on scroll direction
+   * @returns {void}
+   * @private
+   */
+  #updateAnimationDirection() {
+    // Direction change is now seamless - just update the direction
+    // The #animate method will handle the rest
+    console.log(`Scroll direction changed to: ${this.#scrollDirection}`);
+  }
+
+  /**
    * @description Disconnected callback
    * @returns {void}
    */
@@ -142,6 +245,16 @@ class COSElement extends HTMLElement {
     if (this.#windowResizeHandler) {
       window.removeEventListener("resize", this.#windowResizeHandler);
       this.#windowResizeHandler = null;
+    }
+
+    if (this.#windowScrollHandler) {
+      window.removeEventListener("scroll", this.#windowScrollHandler);
+      this.#windowScrollHandler = null;
+    }
+
+    if (this.#animationFrameId) {
+      cancelAnimationFrame(this.#animationFrameId);
+      this.#animationFrameId = null;
     }
   }
 }
