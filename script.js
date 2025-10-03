@@ -47,7 +47,16 @@ class COSElement extends HTMLElement {
   #animationFrameId = null;
 
   /** @type {number} */
-  #speed = 1; // pixels per frame (adjust for desired speed)
+  #baseSpeed = 1; // pixels per frame (adjust for desired speed)
+
+  /** @type {number} */
+  #currentSpeed = 1; // current speed (can be boosted)
+
+  /** @type {number} */
+  #speedBoostMultiplier = 3; // 2x speed on direction change
+
+  /** @type {number} */
+  #speedDecayRate = 0.1; // how fast speed returns to normal (lower = slower decay)
 
   /**
    * @constructor
@@ -167,10 +176,13 @@ class COSElement extends HTMLElement {
       const currentScrollY = window.scrollY;
       const newDirection = currentScrollY > this.#lastScrollY ? "down" : "up";
 
-      // Only update if scroll direction has changed
+      // Apply speed boost on every scroll
+      this.#applySpeedBoost();
+
+      // Update direction if it changed
       if (newDirection !== this.#scrollDirection) {
         this.#scrollDirection = newDirection;
-        this.#updateAnimationDirection();
+        console.log(`Scroll direction changed to: ${this.#scrollDirection}`);
       }
 
       this.#lastScrollY = currentScrollY;
@@ -203,11 +215,20 @@ class COSElement extends HTMLElement {
    * @private
    */
   #animate() {
+    // Smoothly decay speed back to base speed if boosted
+    if (this.#currentSpeed > this.#baseSpeed) {
+      this.#currentSpeed = Math.max(
+        this.#baseSpeed,
+        this.#currentSpeed -
+          (this.#currentSpeed - this.#baseSpeed) * this.#speedDecayRate
+      );
+    }
+
     // Update position based on scroll direction
     if (this.#scrollDirection === "down") {
-      this.#currentPosition -= this.#speed; // Move left
+      this.#currentPosition -= this.#currentSpeed; // Move left
     } else {
-      this.#currentPosition += this.#speed; // Move right
+      this.#currentPosition += this.#currentSpeed; // Move right
     }
 
     // Reset position when we've scrolled past one full loop
@@ -227,14 +248,19 @@ class COSElement extends HTMLElement {
   }
 
   /**
-   * @description Update animation direction based on scroll direction
+   * @description Apply speed boost to carousel animation
    * @returns {void}
    * @private
    */
-  #updateAnimationDirection() {
-    // Direction change is now seamless - just update the direction
-    // The #animate method will handle the rest
-    console.log(`Scroll direction changed to: ${this.#scrollDirection}`);
+  #applySpeedBoost() {
+    // Boost speed on every scroll action
+    this.#currentSpeed = this.#baseSpeed * this.#speedBoostMultiplier;
+
+    console.log(
+      `Speed boosted to ${this.#currentSpeed}px/frame (direction: ${
+        this.#scrollDirection
+      })`
+    );
   }
 
   /**
