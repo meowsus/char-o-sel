@@ -24,10 +24,10 @@ class COSElement extends HTMLElement {
   $track;
 
   /** @type {NodeListOf<HTMLElement> | null} */
-  $items;
+  $initialItems;
 
   /** @type {number} */
-  itemsWidth = 0;
+  initialItemsWidth = 0;
 
   /** @type {() => void} */
   #windowResizeHandler = null;
@@ -41,17 +41,7 @@ class COSElement extends HTMLElement {
     super();
 
     this.$track = this.querySelector("[data-track]");
-    this.$items = this.querySelectorAll("[data-item]");
-  }
-
-  /**
-   * @description Get image items
-   * @returns {Array<HTMLElement>}
-   */
-  get $imageItems() {
-    return Array.from(this.$items).filter((item) =>
-      item.querySelector("[data-image-source]")
-    );
+    this.$initialItems = this.querySelectorAll("[data-item]");
   }
 
   /**
@@ -61,9 +51,7 @@ class COSElement extends HTMLElement {
   connectedCallback() {
     this.#checkRequiredElements();
 
-    this.#applyTrackStyles();
-    this.#applyImagesStyles();
-    this.#calculateItemsWidth();
+    this.#calculateInitialItemsWidth();
     this.#setupThrottledWindowResizeHandler();
     this.#setupWindowResizeListener();
   }
@@ -79,43 +67,9 @@ class COSElement extends HTMLElement {
       throw new Error("Track element not found");
     }
 
-    if (!this.$items.length) {
+    if (!this.$initialItems.length) {
       throw new Error("Items element not found");
     }
-  }
-
-  /**
-   * @description Apply track styles
-   * @returns {void}
-   * @private
-   */
-  #applyTrackStyles() {
-    this.$track.style.touchAction = "pan-y";
-    this.$track.style.filter = "blur(0px)";
-    this.$track.style.opacity = "1";
-    this.$track.style.visibility = "inherit";
-  }
-
-  /**
-   * @description Apply images styles
-   * @returns {void}
-   * @private
-   */
-  #applyImagesStyles() {
-    this.$imageItems.forEach((item) => {
-      const $source = item.querySelector("[data-image-source]");
-      const $placeholder = item.querySelector("[data-image-placeholder]");
-
-      const $outer = item.querySelector("[data-image-container-outer]");
-      const $inner = item.querySelector("[data-image-container-inner]");
-
-      const { width, height } = $placeholder.getBoundingClientRect();
-
-      const maxWidth = $source.sizes.split(", ")[1]; // Fairly brittle, but it works
-
-      $outer.style.aspectRatio = `${width} / ${height}`;
-      $inner.style.maxWidth = `${maxWidth}px`;
-    });
   }
 
   /**
@@ -123,11 +77,11 @@ class COSElement extends HTMLElement {
    * @returns {void}
    * @private
    */
-  #calculateItemsWidth() {
+  #calculateInitialItemsWidth() {
     // Use scrollWidth to get the total width of all items including margins
-    this.itemsWidth = this.$track.scrollWidth;
+    this.initialItemsWidth = this.$track.scrollWidth;
 
-    console.log("Items width calculated:", this.itemsWidth);
+    console.log("Initial items width calculated:", this.initialItemsWidth);
   }
 
   /**
@@ -137,7 +91,7 @@ class COSElement extends HTMLElement {
    */
   #setupThrottledWindowResizeHandler() {
     this.#windowResizeHandler = throttle(() => {
-      this.#calculateItemsWidth();
+      this.#calculateInitialItemsWidth();
     }, 100);
   }
 
