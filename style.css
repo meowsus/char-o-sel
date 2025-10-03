@@ -12,6 +12,10 @@ body {
   margin: 0;
 }
 
+.cos__section {
+  overflow: hidden;
+}
+
 .cos__list {
   /**
    * [1] The max-width is important to ensure that the initial width of the list is calculable

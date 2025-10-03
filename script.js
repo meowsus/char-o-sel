@@ -52,6 +52,7 @@ class COSElement extends HTMLElement {
     this.#checkRequiredElements();
 
     this.#calculateInitialItemsWidth();
+    this.#cloneAndAppendInitialItems();
     this.#setupThrottledWindowResizeHandler();
     this.#setupWindowResizeListener();
   }
@@ -98,6 +99,20 @@ class COSElement extends HTMLElement {
     );
 
     console.log("Initial items width calculated:", this.initialItemsWidth);
+  }
+
+  /**
+   * @description Clone and append initial items to the end of the track
+   * @returns {void}
+   * @private
+   */
+  #cloneAndAppendInitialItems() {
+    this.$initialItems.forEach((item) => {
+      const clonedItem = item.cloneNode(true);
+      this.$track.appendChild(clonedItem);
+    });
+
+    console.log("Initial items cloned and appended");
   }
 
   /**
