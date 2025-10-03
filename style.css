@@ -24,6 +24,14 @@ body {
   visibility: inherit;
   width: fit-content;
   will-change: transform;
+  user-select: none;
+}
+
+/* Only show grab cursor on devices with mouse/pointer */
+@media (hover: hover) and (pointer: fine) {
+  .cos__list {
+    cursor: grab;
+  }
 }
 
 .cos__item {

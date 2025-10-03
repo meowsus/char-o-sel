@@ -58,6 +58,48 @@ class COSElement extends HTMLElement {
   /** @type {number} */
   #speedDecayRate = 0.1; // how fast speed returns to normal (lower = slower decay)
 
+  /** @type {boolean} */
+  #isDragging = false;
+
+  /** @type {number} */
+  #dragStartX = 0;
+
+  /** @type {number} */
+  #dragStartY = 0;
+
+  /** @type {number} */
+  #dragStartPosition = 0;
+
+  /** @type {boolean} */
+  #touchDirectionDetermined = false;
+
+  /** @type {'horizontal' | 'vertical' | null} */
+  #touchDirection = null;
+
+  /** @type {Function | null} */
+  #boundMouseDown = null;
+
+  /** @type {Function | null} */
+  #boundMouseMove = null;
+
+  /** @type {Function | null} */
+  #boundMouseUp = null;
+
+  /** @type {Function | null} */
+  #boundMouseLeave = null;
+
+  /** @type {Function | null} */
+  #boundTouchStart = null;
+
+  /** @type {Function | null} */
+  #boundTouchMove = null;
+
+  /** @type {Function | null} */
+  #boundTouchEnd = null;
+
+  /** @type {Function | null} */
+  #boundTouchCancel = null;
+
   /**
    * @constructor
    * @description Constructor
@@ -85,6 +127,7 @@ class COSElement extends HTMLElement {
     this.#setupWindowResizeListener();
     this.#setupWindowScrollHandler();
     this.#setupWindowScrollListener();
+    this.#setupDragListeners();
     this.#startAnimation();
   }
 
@@ -201,6 +244,261 @@ class COSElement extends HTMLElement {
   }
 
   /**
+   * @description Set up drag listeners for click and drag functionality
+   * @returns {void}
+   * @private
+   */
+  #setupDragListeners() {
+    // Bind and store functions for proper cleanup
+    this.#boundMouseDown = this.#handleMouseDown.bind(this);
+    this.#boundMouseMove = this.#handleMouseMove.bind(this);
+    this.#boundMouseUp = this.#handleMouseUp.bind(this);
+    this.#boundMouseLeave = this.#handleMouseLeave.bind(this);
+
+    this.$track.addEventListener("mousedown", this.#boundMouseDown);
+    this.$track.addEventListener("mousemove", this.#boundMouseMove);
+    this.$track.addEventListener("mouseup", this.#boundMouseUp);
+    this.$track.addEventListener("mouseleave", this.#boundMouseLeave);
+
+    // Touch event listeners for mobile
+    this.#boundTouchStart = this.#handleTouchStart.bind(this);
+    this.#boundTouchMove = this.#handleTouchMove.bind(this);
+    this.#boundTouchEnd = this.#handleTouchEnd.bind(this);
+    this.#boundTouchCancel = this.#handleTouchCancel.bind(this);
+
+    this.$track.addEventListener("touchstart", this.#boundTouchStart, {
+      passive: false,
+    });
+    this.$track.addEventListener("touchmove", this.#boundTouchMove, {
+      passive: false,
+    });
+    this.$track.addEventListener("touchend", this.#boundTouchEnd);
+    this.$track.addEventListener("touchcancel", this.#boundTouchCancel);
+
+    // Prevent default drag behavior on images/videos
+    this.$track.addEventListener("dragstart", (e) => e.preventDefault());
+  }
+
+  /**
+   * @description Handle mouse down event to start dragging
+   * @param {MouseEvent} e - Mouse event
+   * @returns {void}
+   * @private
+   */
+  #handleMouseDown(e) {
+    this.#isDragging = true;
+    this.#dragStartX = e.clientX;
+    this.#dragStartPosition = this.#currentPosition;
+    this.$track.style.cursor = "grabbing";
+
+    console.log("Drag started");
+  }
+
+  /**
+   * @description Handle mouse move event to update position while dragging
+   * @param {MouseEvent} e - Mouse event
+   * @returns {void}
+   * @private
+   */
+  #handleMouseMove(e) {
+    if (!this.#isDragging) return;
+
+    const deltaX = e.clientX - this.#dragStartX;
+    this.#currentPosition = this.#dragStartPosition + deltaX;
+
+    // Calculate the visual position with wrapping (for display only)
+    // This allows seamless infinite scrolling without resetting drag state
+    let visualPosition = this.#currentPosition;
+
+    // Normalize visual position to always be within bounds [-range, 0)
+    const range = this.initialItemsWidth;
+    visualPosition = ((visualPosition % range) + range) % range;
+    if (visualPosition >= 0) {
+      visualPosition -= range;
+    }
+
+    // Apply transform with wrapped position
+    this.$track.style.transform = `translateX(${visualPosition}px)`;
+  }
+
+  /**
+   * @description Handle mouse up event to stop dragging
+   * @returns {void}
+   * @private
+   */
+  #handleMouseUp() {
+    if (this.#isDragging) {
+      this.#isDragging = false;
+      this.$track.style.cursor = "grab";
+
+      // Normalize position after drag for smooth animation continuation
+      const range = this.initialItemsWidth;
+      this.#currentPosition = ((this.#currentPosition % range) + range) % range;
+      if (this.#currentPosition >= 0) {
+        this.#currentPosition -= range;
+      }
+
+      console.log("Drag ended");
+    }
+  }
+
+  /**
+   * @description Handle mouse leave event to stop dragging if mouse leaves
+   * @returns {void}
+   * @private
+   */
+  #handleMouseLeave() {
+    if (this.#isDragging) {
+      this.#isDragging = false;
+      this.$track.style.cursor = "grab";
+
+      // Normalize position after drag for smooth animation continuation
+      const range = this.initialItemsWidth;
+      this.#currentPosition = ((this.#currentPosition % range) + range) % range;
+      if (this.#currentPosition >= 0) {
+        this.#currentPosition -= range;
+      }
+
+      console.log("Drag ended (mouse left track)");
+    }
+  }
+
+  /**
+   * @description Handle touch start event to start dragging on mobile
+   * @param {TouchEvent} e - Touch event
+   * @returns {void}
+   * @private
+   */
+  #handleTouchStart(e) {
+    if (e.touches.length !== 1) return; // Only handle single touch
+
+    // Record initial touch position but don't prevent default yet
+    // We'll determine direction in touchmove
+    this.#dragStartX = e.touches[0].clientX;
+    this.#dragStartY = e.touches[0].clientY;
+    this.#dragStartPosition = this.#currentPosition;
+    this.#touchDirectionDetermined = false;
+    this.#touchDirection = null;
+
+    console.log("Touch started - waiting for direction");
+  }
+
+  /**
+   * @description Handle touch move event to update position while dragging on mobile
+   * @param {TouchEvent} e - Touch event
+   * @returns {void}
+   * @private
+   */
+  #handleTouchMove(e) {
+    if (e.touches.length !== 1) return;
+
+    const currentX = e.touches[0].clientX;
+    const currentY = e.touches[0].clientY;
+
+    // Determine touch direction on first move
+    if (!this.#touchDirectionDetermined) {
+      const deltaX = Math.abs(currentX - this.#dragStartX);
+      const deltaY = Math.abs(currentY - this.#dragStartY);
+
+      // Need some minimum movement to determine direction (avoid jitter)
+      if (deltaX > 5 || deltaY > 5) {
+        this.#touchDirectionDetermined = true;
+
+        if (deltaX > deltaY) {
+          // Horizontal movement - engage carousel drag
+          this.#touchDirection = "horizontal";
+          this.#isDragging = true;
+          console.log("Touch direction: horizontal - carousel drag engaged");
+        } else {
+          // Vertical movement - allow normal scrolling
+          this.#touchDirection = "vertical";
+          this.#isDragging = false;
+          console.log("Touch direction: vertical - allowing page scroll");
+          return; // Let the browser handle vertical scroll
+        }
+      } else {
+        // Not enough movement yet to determine direction
+        return;
+      }
+    }
+
+    // Only handle horizontal dragging
+    if (this.#touchDirection === "vertical") {
+      return; // Let the browser handle vertical scroll
+    }
+
+    if (!this.#isDragging) return;
+
+    // Prevent default to avoid scrolling while horizontally dragging
+    e.preventDefault();
+
+    const deltaX = currentX - this.#dragStartX;
+    this.#currentPosition = this.#dragStartPosition + deltaX;
+
+    // Calculate the visual position with wrapping (for display only)
+    // This allows seamless infinite scrolling without resetting drag state
+    let visualPosition = this.#currentPosition;
+
+    // Normalize visual position to always be within bounds [-range, 0)
+    const range = this.initialItemsWidth;
+    visualPosition = ((visualPosition % range) + range) % range;
+    if (visualPosition >= 0) {
+      visualPosition -= range;
+    }
+
+    // Apply transform with wrapped position
+    this.$track.style.transform = `translateX(${visualPosition}px)`;
+  }
+
+  /**
+   * @description Handle touch end event to stop dragging on mobile
+   * @returns {void}
+   * @private
+   */
+  #handleTouchEnd() {
+    if (this.#isDragging) {
+      this.#isDragging = false;
+
+      // Normalize position after drag for smooth animation continuation
+      const range = this.initialItemsWidth;
+      this.#currentPosition = ((this.#currentPosition % range) + range) % range;
+      if (this.#currentPosition >= 0) {
+        this.#currentPosition -= range;
+      }
+
+      console.log("Touch drag ended");
+    }
+
+    // Reset touch direction tracking
+    this.#touchDirectionDetermined = false;
+    this.#touchDirection = null;
+  }
+
+  /**
+   * @description Handle touch cancel event to stop dragging on mobile
+   * @returns {void}
+   * @private
+   */
+  #handleTouchCancel() {
+    if (this.#isDragging) {
+      this.#isDragging = false;
+
+      // Normalize position after drag for smooth animation continuation
+      const range = this.initialItemsWidth;
+      this.#currentPosition = ((this.#currentPosition % range) + range) % range;
+      if (this.#currentPosition >= 0) {
+        this.#currentPosition -= range;
+      }
+
+      console.log("Touch drag cancelled");
+    }
+
+    // Reset touch direction tracking
+    this.#touchDirectionDetermined = false;
+    this.#touchDirection = null;
+  }
+
+  /**
    * @description Start the animation loop
    * @returns {void}
    * @private
@@ -215,35 +513,38 @@ class COSElement extends HTMLElement {
    * @private
    */
   #animate() {
-    // Smoothly decay speed back to base speed if boosted
-    if (this.#currentSpeed > this.#baseSpeed) {
-      this.#currentSpeed = Math.max(
-        this.#baseSpeed,
-        this.#currentSpeed -
-          (this.#currentSpeed - this.#baseSpeed) * this.#speedDecayRate
-      );
+    // Skip animation if user is dragging
+    if (!this.#isDragging) {
+      // Smoothly decay speed back to base speed if boosted
+      if (this.#currentSpeed > this.#baseSpeed) {
+        this.#currentSpeed = Math.max(
+          this.#baseSpeed,
+          this.#currentSpeed -
+            (this.#currentSpeed - this.#baseSpeed) * this.#speedDecayRate
+        );
+      }
+
+      // Update position based on scroll direction
+      if (this.#scrollDirection === "down") {
+        this.#currentPosition -= this.#currentSpeed; // Move left
+      } else {
+        this.#currentPosition += this.#currentSpeed; // Move right
+      }
+
+      // Reset position when we've scrolled past one full loop
+      // This creates the infinite loop effect
+      if (this.#currentPosition <= -this.initialItemsWidth) {
+        this.#currentPosition = 0;
+      } else if (this.#currentPosition >= 0) {
+        // When going backwards, reset to negative position
+        this.#currentPosition = -this.initialItemsWidth;
+      }
+
+      // Apply transform
+      this.$track.style.transform = `translateX(${this.#currentPosition}px)`;
     }
 
-    // Update position based on scroll direction
-    if (this.#scrollDirection === "down") {
-      this.#currentPosition -= this.#currentSpeed; // Move left
-    } else {
-      this.#currentPosition += this.#currentSpeed; // Move right
-    }
-
-    // Reset position when we've scrolled past one full loop
-    // This creates the infinite loop effect
-    if (this.#currentPosition <= -this.initialItemsWidth) {
-      this.#currentPosition = 0;
-    } else if (this.#currentPosition >= 0) {
-      // When going backwards, reset to negative position
-      this.#currentPosition = -this.initialItemsWidth;
-    }
-
-    // Apply transform
-    this.$track.style.transform = `translateX(${this.#currentPosition}px)`;
-
-    // Continue animation
+    // Continue animation loop
     this.#animationFrameId = requestAnimationFrame(() => this.#animate());
   }
 
@@ -281,6 +582,48 @@ class COSElement extends HTMLElement {
     if (this.#animationFrameId) {
       cancelAnimationFrame(this.#animationFrameId);
       this.#animationFrameId = null;
+    }
+
+    // Clean up drag listeners
+    if (this.#boundMouseDown) {
+      this.$track.removeEventListener("mousedown", this.#boundMouseDown);
+      this.#boundMouseDown = null;
+    }
+
+    if (this.#boundMouseMove) {
+      this.$track.removeEventListener("mousemove", this.#boundMouseMove);
+      this.#boundMouseMove = null;
+    }
+
+    if (this.#boundMouseUp) {
+      this.$track.removeEventListener("mouseup", this.#boundMouseUp);
+      this.#boundMouseUp = null;
+    }
+
+    if (this.#boundMouseLeave) {
+      this.$track.removeEventListener("mouseleave", this.#boundMouseLeave);
+      this.#boundMouseLeave = null;
+    }
+
+    // Clean up touch listeners
+    if (this.#boundTouchStart) {
+      this.$track.removeEventListener("touchstart", this.#boundTouchStart);
+      this.#boundTouchStart = null;
+    }
+
+    if (this.#boundTouchMove) {
+      this.$track.removeEventListener("touchmove", this.#boundTouchMove);
+      this.#boundTouchMove = null;
+    }
+
+    if (this.#boundTouchEnd) {
+      this.$track.removeEventListener("touchend", this.#boundTouchEnd);
+      this.#boundTouchEnd = null;
+    }
+
+    if (this.#boundTouchCancel) {
+      this.$track.removeEventListener("touchcancel", this.#boundTouchCancel);
+      this.#boundTouchCancel = null;
     }
   }
 }
