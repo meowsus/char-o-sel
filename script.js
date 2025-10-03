@@ -1,4 +1,22 @@
 /**
+ * @description Debounce function to limit callback execution frequency
+ * @param {Function} func - The function to debounce
+ * @param {number} wait - The delay in milliseconds
+ * @returns {Function} The debounced function
+ */
+function debounce(func, wait) {
+  let timeout;
+  return function executedFunction(...args) {
+    const later = () => {
+      clearTimeout(timeout);
+      func(...args);
+    };
+    clearTimeout(timeout);
+    timeout = setTimeout(later, wait);
+  };
+}
+
+/**
  * @class COSElement
  * @extends HTMLElement
  */
@@ -8,6 +26,12 @@ class COSElement extends HTMLElement {
 
   /** @type {NodeListOf<HTMLElement> | null} */
   $items;
+
+  /** @type {number} */
+  itemsWidth = 0;
+
+  /** @type {() => void} */
+  #windowResizeHandler = null;
 
   /**
    * @constructor
@@ -40,6 +64,9 @@ class COSElement extends HTMLElement {
 
     this.#applyTrackStyles();
     this.#applyImagesStyles();
+    this.#calculateItemsWidth();
+    this.#setupDebouncedWindowResizeHandler();
+    this.#setupWindowResizeListener();
   }
 
   /**
@@ -90,6 +117,49 @@ class COSElement extends HTMLElement {
       $outer.style.aspectRatio = `${width} / ${height}`;
       $inner.style.maxWidth = `${maxWidth}px`;
     });
+  }
+
+  /**
+   * @description Calculate the total width of all items using scrollWidth
+   * @returns {void}
+   * @private
+   */
+  #calculateItemsWidth() {
+    // Use scrollWidth to get the total width of all items including margins
+    this.itemsWidth = this.$track.scrollWidth;
+
+    console.log("Items width calculated:", this.itemsWidth);
+  }
+
+  /**
+   * @description Set up debounced window resize handler
+   * @returns {void}
+   * @private
+   */
+  #setupDebouncedWindowResizeHandler() {
+    this.#windowResizeHandler = debounce(() => {
+      this.#calculateItemsWidth();
+    }, 100);
+  }
+
+  /**
+   * @description Set up window resize listener as backup
+   * @returns {void}
+   * @private
+   */
+  #setupWindowResizeListener() {
+    window.addEventListener("resize", this.#windowResizeHandler);
+  }
+
+  /**
+   * @description Disconnected callback
+   * @returns {void}
+   */
+  disconnectedCallback() {
+    if (this.#windowResizeHandler) {
+      window.removeEventListener("resize", this.#windowResizeHandler);
+      this.#windowResizeHandler = null;
+    }
   }
 }
 

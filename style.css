@@ -1,19 +1,26 @@
 .cos__list {
+  /**
+   * [1] The max-width is important to ensure that the initial width of the list is calculable
+   */
   display: flex;
   overflow-x: hidden;
   white-space: nowrap;
   padding: 0.6rem 0 0.7rem;
   margin: 0;
   list-style: none;
+  max-width: fit-content;
 }
 
 .cos__item {
+  /**
+   * [1] The margin-right is important to ensure that the gap between items is calculable
+   */
   display: flex;
   flex-shrink: 0;
   align-items: center;
   justify-content: center;
   height: 94svh;
-  margin-right: 0.8rem;
+  margin-right: 0.8rem; /* [1] */
   border-radius: 2rem;
   overflow: hidden;
   background: #212121;
