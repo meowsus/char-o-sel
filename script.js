@@ -73,13 +73,29 @@ class COSElement extends HTMLElement {
   }
 
   /**
-   * @description Calculate the total width of all items using scrollWidth
+   * @description Calculate the total width of all initial items including margins
    * @returns {void}
    * @private
    */
   #calculateInitialItemsWidth() {
-    // Use scrollWidth to get the total width of all items including margins
-    this.initialItemsWidth = this.$track.scrollWidth;
+    // Calculate the actual width of each initial item including margins
+    let totalWidth = 0;
+
+    this.$initialItems.forEach((item) => {
+      const itemWidth = item.offsetWidth;
+      const computedStyle = window.getComputedStyle(item);
+      const marginLeft = parseFloat(computedStyle.marginLeft) || 0;
+      const marginRight = parseFloat(computedStyle.marginRight) || 0;
+
+      totalWidth += itemWidth + marginLeft + marginRight;
+    });
+
+    this.initialItemsWidth = totalWidth;
+
+    this.$track.style.setProperty(
+      "--cos-initial-items-width",
+      `${this.initialItemsWidth}px`
+    );
 
     console.log("Initial items width calculated:", this.initialItemsWidth);
   }
